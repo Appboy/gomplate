@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"plugin"
 	"strings"
 	"time"
 
@@ -23,6 +24,9 @@ import (
 
 // stdin - for overriding in tests
 var stdin io.Reader
+
+const PluginSchemeFunction string = "Scheme"
+const PluginGetFunction string = "Get"
 
 func regExtension(ext, typ string) {
 	err := mime.AddExtensionType(ext, typ)
@@ -67,6 +71,7 @@ func addSourceReader(scheme string, readFunc func(*Source, ...string) ([]byte, e
 type Data struct {
 	Sources map[string]*Source
 	cache   map[string][]byte
+	plugins map[string]plugin.Symbol
 
 	// headers from the --datasource-header/-H option that don't reference datasources from the commandline
 	extraHeaders map[string]http.Header
@@ -81,9 +86,13 @@ func (d *Data) Cleanup() {
 }
 
 // NewData - constructor for Data
-func NewData(datasourceArgs, headerArgs []string) (*Data, error) {
+func NewData(datasourceArgs, headerArgs []string, pluginArgs []string) (*Data, error) {
 	sources := make(map[string]*Source)
 	headers, err := parseHeaderArgs(headerArgs)
+	if err != nil {
+		return nil, err
+	}
+	pluginFunctions, err := parsePluginArgs(pluginArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -95,12 +104,17 @@ func NewData(datasourceArgs, headerArgs []string) (*Data, error) {
 		s.header = headers[s.Alias]
 		// pop the header out of the map, so we end up with only the unreferenced ones
 		delete(headers, s.Alias)
+		// if the scheme is in our plugins then add the plugin's get method to the source
+		if gf, ok := pluginFunctions[s.URL.Scheme]; ok {
+			s.gf = gf
+		}
 
 		sources[s.Alias] = s
 	}
 	return &Data{
 		Sources:      sources,
 		extraHeaders: headers,
+		plugins:      pluginFunctions,
 	}, nil
 }
 
@@ -113,6 +127,7 @@ type Source struct {
 	hc        *http.Client   // used for http[s]: URLs, nil otherwise
 	vc        *vault.Vault   // used for vault: URLs, nil otherwise
 	kv        *libkv.LibKV   // used for consul:, etcd:, zookeeper: & boltdb: URLs, nil otherwise
+	gf        plugin.Symbol  // used for plugins, the get function symbol for the sources plugin
 	asmpg     awssmpGetter   // used for aws+smp:, nil otherwise
 	header    http.Header    // used for http[s]: URLs, nil otherwise
 }
@@ -371,6 +386,13 @@ func readStdin(source *Source, args ...string) ([]byte, error) {
 	return b, nil
 }
 
+func readPlugin(source *Source, args ...string) ([]byte, error) {
+	if source.gf == nil {
+		return nil, errors.Errorf("Datasource with %s is a plugin datasource but its plugin's get method is nil.", source.Alias)
+	}
+	return source.gf.(func(url *url.URL, headers http.Header, args []string) ([]byte, error))(source.URL, source.header, args)
+}
+
 func readHTTP(source *Source, args ...string) ([]byte, error) {
 	if source.hc == nil {
 		source.hc = &http.Client{Timeout: time.Second * 5}
@@ -445,6 +467,31 @@ func readBoltDB(source *Source, args ...string) ([]byte, error) {
 	}
 
 	return data, nil
+}
+
+func parsePluginArgs(pluginArgs []string) (map[string]plugin.Symbol, error) {
+	plugins := make(map[string]plugin.Symbol)
+	for _, v := range pluginArgs {
+		p, err := plugin.Open(v)
+		if err != nil {
+			return nil, err
+		}
+		psm, err := p.Lookup(PluginSchemeFunction)
+		if err != nil {
+			return nil, err
+		}
+		pluginSchemeName, err := psm.(func() (string, error))()
+		if err != nil {
+			return nil, err
+		}
+		addSourceReader(pluginSchemeName, readPlugin)
+		pgm, err := p.Lookup(PluginGetFunction)
+		if err != nil {
+			return nil, err
+		}
+		plugins[pluginSchemeName] = pgm
+	}
+	return plugins, nil
 }
 
 func parseHeaderArgs(headerArgs []string) (map[string]http.Header, error) {
