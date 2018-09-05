@@ -158,6 +158,12 @@ func (s *Source) mimeType() (mimeType string, err error) {
 	if mediatype == "" {
 		ext := filepath.Ext(s.URL.Path)
 		mediatype = mime.TypeByExtension(ext)
+		// if folder in path ends in '.com'
+		// the above TypeByExtension field returns a false media type,
+		// hence the jump to returning text mime type
+		if(ext == ".com") {
+			return textMimetype, nil
+		}
 	}
 
 	if mediatype != "" {
