@@ -110,7 +110,6 @@ func initFlags(command *cobra.Command) {
 	command.Flags().StringArrayVarP(&opts.InputFiles, "file", "f", []string{"-"}, "Template `file` to process. Omit to use standard input, or use --in or --input-dir")
 	command.Flags().StringArrayVarP(&opts.PluginSources, "plugin", "p", []string{""}, "Plugin to process.") // add more details later
 
-
 	command.Flags().StringVarP(&opts.Input, "in", "i", "", "Template `string` to process (alternative to --file and --input-dir)")
 	command.Flags().StringVar(&opts.InputDir, "input-dir", "", "`directory` which is examined recursively for templates (alternative to --file and --in)")
 

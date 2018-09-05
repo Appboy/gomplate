@@ -1,8 +1,6 @@
 package main
 
 import (
-  //"errors"
-  //"fmt"
   "net/http"
   "net/url"
 )
