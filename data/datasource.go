@@ -301,6 +301,7 @@ func (d *Data) Datasource(alias string, args ...string) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Couldn't read datasource '%s'", alias)
 	}
+
 	mimeType, err := source.mimeType()
 	if err != nil {
 		return nil, err
@@ -396,7 +397,11 @@ func readPlugin(source *Source, args ...string) ([]byte, error) {
 	if source.gf == nil {
 		return nil, errors.Errorf("Datasource with %s is a plugin datasource but its plugin's get method is nil.", source.Alias)
 	}
-	return source.gf.(func(url *url.URL, headers http.Header, args []string) ([]byte, error))(source.URL, source.header, args)
+	gf, ok := source.gf.(func(url *url.URL, headers http.Header, args []string) ([]byte, error))
+	if ok {
+		return gf(source.URL, source.header, args)
+	}
+	return nil, fmt.Errorf("Error in finding the plugin's get function")
 }
 
 func readHTTP(source *Source, args ...string) ([]byte, error) {
