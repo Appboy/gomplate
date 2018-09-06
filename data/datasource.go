@@ -106,6 +106,7 @@ func NewData(datasourceArgs, headerArgs []string, pluginArgs []string) (*Data, e
 		s.header = headers[s.Alias]
 		// pop the header out of the map, so we end up with only the unreferenced ones
 		delete(headers, s.Alias)
+
 		// if the scheme is in our plugins then add the plugin's get method to the source
 		if gf, ok := pluginFunctions[s.URL.Scheme]; ok {
 			s.gf = gf
@@ -172,6 +173,7 @@ func (s *Source) mimeType() (mimeType string, err error) {
 		mediatype = t
 		return mediatype, nil
 	}
+
 	return textMimetype, nil
 }
 
@@ -388,6 +390,8 @@ func readStdin(source *Source, args ...string) ([]byte, error) {
 	return b, nil
 }
 
+// readPlugin returns the plugin's get function
+// and throws an errors if the get functions does not exist
 func readPlugin(source *Source, args ...string) ([]byte, error) {
 	if source.gf == nil {
 		return nil, errors.Errorf("Datasource with %s is a plugin datasource but its plugin's get method is nil.", source.Alias)
@@ -497,11 +501,14 @@ func parsePluginArgs(pluginArgs []string) (map[string]plugin.Symbol, map[string]
 		if err != nil {
 			return plugins, nil, err
 		}
-		gmtfunc, ok := gmtsymbol.(func() string)
-		if !ok {
-			return plugins, nil, err
-		}
-		mediaTypes[pluginSchemeName] = gmtfunc()
+		mt, err := gmtsymbol.(func() (string, error))()
+
+		// if can't get mimetype, default to simple text type
+		if err != nil{
+			mediaTypes[pluginSchemeName] = textMimetype
+			return plugins, mediaTypes, err
+    }
+		mediaTypes[pluginSchemeName] = mt
 	}
 	return plugins, mediaTypes, nil
 }
