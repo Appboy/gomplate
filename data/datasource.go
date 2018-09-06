@@ -25,6 +25,7 @@ import (
 // stdin - for overriding in tests
 var stdin io.Reader
 
+// general plugin method names
 const PluginSchemeFunction string = "Scheme"
 const PluginGetFunction string = "Get"
 const PluginGetMediaTypeFunction string = "GetMediaType"

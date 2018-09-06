@@ -83,7 +83,8 @@ build: $(PREFIX)/bin/$(PKG_NAME)$(call extension,$(GOOS))
 test:
 	$(GO) test -v -race -coverprofile=c.out ./...
 
-integration: ./bin/gomplate
+integration:./bin/gomplate
+	$(GO) build -buildmode=plugin -i ./testPlugin/testPlugin.go
 	$(GO) test -v -tags=integration \
 		./tests/integration -check.v
 
@@ -92,6 +93,11 @@ integration.iid: Dockerfile.integration $(PREFIX)/bin/$(PKG_NAME)_linux-amd64$(c
 
 test-integration-docker: integration.iid
 	docker run -it --rm $(shell cat $<)
+
+test-plugin:
+	$(GO) build -buildmode=plugin -i ./testPlugin/testPlugin.go
+	$(GO) test -v -tags=integration \
+		./tests/integration -check.v
 
 gen-changelog:
 	docker run -it -v $(shell pwd):/app --workdir /app -e CHANGELOG_GITHUB_TOKEN hairyhenderson/github_changelog_generator \
