@@ -14,6 +14,10 @@ func Get(url *url.URL, headers http.Header, args []string) ([]byte, error) {
   return a, nil
 }
 
+func GetMediaType() (string) {
+	return "text/plain"
+}
+
 func main() {
 	//do nothing
 }

@@ -27,6 +27,7 @@ var stdin io.Reader
 
 const PluginSchemeFunction string = "Scheme"
 const PluginGetFunction string = "Get"
+const PluginGetMediaTypeFunction string = "GetMediaType"
 
 func regExtension(ext, typ string) {
 	err := mime.AddExtensionType(ext, typ)
@@ -92,7 +93,7 @@ func NewData(datasourceArgs, headerArgs []string, pluginArgs []string) (*Data, e
 	if err != nil {
 		return nil, err
 	}
-	pluginFunctions, err := parsePluginArgs(pluginArgs)
+	pluginFunctions, pluginMediaTypes, err := parsePluginArgs(pluginArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +109,9 @@ func NewData(datasourceArgs, headerArgs []string, pluginArgs []string) (*Data, e
 		if gf, ok := pluginFunctions[s.URL.Scheme]; ok {
 			s.gf = gf
 		}
-
+		if mt, ok := pluginMediaTypes[s.URL.Scheme]; ok {
+		  s.mediaType = mt;
+	  }
 		sources[s.Alias] = s
 	}
 	return &Data{
@@ -158,12 +161,6 @@ func (s *Source) mimeType() (mimeType string, err error) {
 	if mediatype == "" {
 		ext := filepath.Ext(s.URL.Path)
 		mediatype = mime.TypeByExtension(ext)
-		// if folder in path ends in '.com'
-		// the above TypeByExtension field returns a false media type,
-		// hence the jump to returning text mime type
-		if(ext == ".com") {
-			return textMimetype, nil
-		}
 	}
 
 	if mediatype != "" {
@@ -174,7 +171,6 @@ func (s *Source) mimeType() (mimeType string, err error) {
 		mediatype = t
 		return mediatype, nil
 	}
-
 	return textMimetype, nil
 }
 
@@ -302,7 +298,6 @@ func (d *Data) Datasource(alias string, args ...string) (interface{}, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Couldn't read datasource '%s'", alias)
 	}
-
 	mimeType, err := source.mimeType()
 	if err != nil {
 		return nil, err
@@ -475,29 +470,39 @@ func readBoltDB(source *Source, args ...string) ([]byte, error) {
 	return data, nil
 }
 
-func parsePluginArgs(pluginArgs []string) (map[string]plugin.Symbol, error) {
+func parsePluginArgs(pluginArgs []string) (map[string]plugin.Symbol, map[string]string, error) {
 	plugins := make(map[string]plugin.Symbol)
+	mediaTypes := make(map[string]string)
 	for _, v := range pluginArgs {
 		p, err := plugin.Open(v)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		psm, err := p.Lookup(PluginSchemeFunction)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		pluginSchemeName, err := psm.(func() (string, error))()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		addSourceReader(pluginSchemeName, readPlugin)
 		pgm, err := p.Lookup(PluginGetFunction)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		plugins[pluginSchemeName] = pgm
+		gmtsymbol, err := p.Lookup(PluginGetMediaTypeFunction)
+		if err != nil {
+			return plugins, nil, err
+		}
+		gmtfunc, ok := gmtsymbol.(func() string)
+		if !ok {
+			return plugins, nil, err
+		}
+		mediaTypes[pluginSchemeName] = gmtfunc()
 	}
-	return plugins, nil
+	return plugins, mediaTypes, nil
 }
 
 func parseHeaderArgs(headerArgs []string) (map[string]http.Header, error) {
