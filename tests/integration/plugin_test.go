@@ -15,6 +15,7 @@ type PluginSuite struct {
 var _ = Suite(&PluginSuite{})
 
 func (s *EnvDatasourcesSuite) TestPlugin(c *C) {
+  //make file compiles the following plugin file
   result := icmd.RunCommand(GomplateBin,
     "-p", "\"../testPlugin.so\"",
 		"-d", "foo=testname:../..",
