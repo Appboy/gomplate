@@ -5,8 +5,7 @@ package integration
 
 import (
   . "gopkg.in/check.v1"
-
-	"github.com/gotestyourself/gotestyourself/icmd"
+  "github.com/gotestyourself/gotestyourself/icmd"
 )
 
 type PluginSuite struct {

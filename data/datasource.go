@@ -481,32 +481,40 @@ func parsePluginArgs(pluginArgs []string) (map[string]plugin.Symbol, map[string]
 	for _, v := range pluginArgs {
 		p, err := plugin.Open(v)
 		if err != nil {
+			err = fmt.Errorf("Error occured opening plugin: ", v)
 			return nil, nil, err
 		}
 		psm, err := p.Lookup(PluginSchemeFunction)
 		if err != nil {
+			err = fmt.Errorf("No Scheme function found in plugin: ", v)
 			return nil, nil, err
 		}
 		pluginSchemeName, err := psm.(func() (string, error))()
 		if err != nil {
+			err = fmt.Errorf("Error occured while using plugin scheme function. Internal Error: " + err.Error() )
 			return nil, nil, err
 		}
+
+		// adding sourcereader here so it doesn't add overhead if user doesn't use a plugin
+		// and allows user to specify multiple plugins within a single call
 		addSourceReader(pluginSchemeName, readPlugin)
 		pgm, err := p.Lookup(PluginGetFunction)
 		if err != nil {
+			err = fmt.Errorf("No Get function found in plugin:  ", v)
 			return nil, nil, err
 		}
 		plugins[pluginSchemeName] = pgm
 		gmtsymbol, err := p.Lookup(PluginGetMediaTypeFunction)
 		if err != nil {
-			return plugins, nil, err
+			mediaTypes[pluginSchemeName] = textMimetype
+			return plugins, mediaTypes, nil
 		}
 		mt, err := gmtsymbol.(func() (string, error))()
 
 		// if can't get mimetype, default to simple text type
 		if err != nil{
 			mediaTypes[pluginSchemeName] = textMimetype
-			return plugins, mediaTypes, err
+			return plugins, mediaTypes, nil
     }
 		mediaTypes[pluginSchemeName] = mt
 	}
