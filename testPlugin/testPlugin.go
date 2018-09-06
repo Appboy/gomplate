@@ -1,17 +1,17 @@
 package main
 
 import (
-  "net/http"
-  "net/url"
+	"net/http"
+	"net/url"
 )
 
 func Scheme() (string, error) {
-  return "testname", nil
+	return "testname", nil
 }
 
 func Get(url *url.URL, headers http.Header, args []string) ([]byte, error) {
-  a := []byte("testing byte array...")
-  return a, nil
+	a := []byte("testing byte array...")
+	return a, nil
 }
 
 func GetMediaType() (string, error) {
