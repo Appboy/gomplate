@@ -83,7 +83,7 @@ build: $(PREFIX)/bin/$(PKG_NAME)$(call extension,$(GOOS))
 test:
 	$(GO) test -v -race -coverprofile=c.out ./...
 
-integration:./bin/gomplate
+integration: ./bin/gomplate
 	$(GO) build -buildmode=plugin -i ./testPlugin/testPlugin.go
 	$(GO) test -v -tags=integration \
 		./tests/integration -check.v

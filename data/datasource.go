@@ -112,8 +112,8 @@ func NewData(datasourceArgs, headerArgs []string, pluginArgs []string) (*Data, e
 			s.gf = gf
 		}
 		if mt, ok := pluginMediaTypes[s.URL.Scheme]; ok {
-		  s.mediaType = mt;
-	  }
+			s.mediaType = mt
+		}
 		sources[s.Alias] = s
 	}
 	return &Data{
@@ -487,16 +487,23 @@ func parsePluginArgs(pluginArgs []string) (map[string]plugin.Symbol, map[string]
 		p, err := plugin.Open(v)
 		if err != nil {
 			err = fmt.Errorf("Error occured opening plugin: ", v)
+			err.Error()
 			return nil, nil, err
 		}
 		psm, err := p.Lookup(PluginSchemeFunction)
 		if err != nil {
 			err = fmt.Errorf("No Scheme function found in plugin: ", v)
+			err.Error()
 			return nil, nil, err
 		}
-		pluginSchemeName, err := psm.(func() (string, error))()
+		psf, ok := psm.(func() (string, error));
+		if !ok{
+			err = fmt.Errorf("Scheme function contains unexpected format. Internal Error: " + err.Error())
+			return nil, nil, err
+		}
+		pluginSchemeName, err := psf()
 		if err != nil {
-			err = fmt.Errorf("Error occured while using plugin scheme function. Internal Error: " + err.Error() )
+			err = fmt.Errorf("Error occured while using plugin scheme function. Internal Error: " + err.Error())
 			return nil, nil, err
 		}
 
@@ -506,21 +513,27 @@ func parsePluginArgs(pluginArgs []string) (map[string]plugin.Symbol, map[string]
 		pgm, err := p.Lookup(PluginGetFunction)
 		if err != nil {
 			err = fmt.Errorf("No Get function found in plugin:  ", v)
+			err.Error()
 			return nil, nil, err
 		}
 		plugins[pluginSchemeName] = pgm
 		gmtsymbol, err := p.Lookup(PluginGetMediaTypeFunction)
+		// if no getmimetype function exists, or function has unexpected format, or function errors itself...
+		// default to simple text type and return
 		if err != nil {
 			mediaTypes[pluginSchemeName] = textMimetype
 			return plugins, mediaTypes, nil
 		}
-		mt, err := gmtsymbol.(func() (string, error))()
-
-		// if can't get mimetype, default to simple text type
-		if err != nil{
+		mtf, ok := gmtsymbol.(func() (string, error))
+		if !ok{
 			mediaTypes[pluginSchemeName] = textMimetype
 			return plugins, mediaTypes, nil
-    }
+		}
+		mt, err := mtf()
+		if err != nil {
+			mediaTypes[pluginSchemeName] = textMimetype
+			return plugins, mediaTypes, nil
+		}
 		mediaTypes[pluginSchemeName] = mt
 	}
 	return plugins, mediaTypes, nil
