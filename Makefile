@@ -152,6 +152,6 @@ slow-lint:
 			./tests/integration
 	megacheck -tags integration ./tests/integration
 
-.PHONY: gen-changelog clean test build-x compress-all build-release build test-integration-docker gen-docs lint clean-images clean-containers docker-images
+.PHONY: gen-changelog clean test build-x compress-all build-release build test-integration-docker build test-plugin gen-docs lint clean-images clean-containers docker-images
 .DELETE_ON_ERROR:
 .SECONDARY:
