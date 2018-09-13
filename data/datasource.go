@@ -480,6 +480,7 @@ func readBoltDB(source *Source, args ...string) ([]byte, error) {
 	return data, nil
 }
 
+
 func getPluginSchemeName(pluginArg string) (string, error){
 	p, err := plugin.Open(pluginArg)
 	if err != nil {
